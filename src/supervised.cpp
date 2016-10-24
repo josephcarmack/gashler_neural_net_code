@@ -32,6 +32,7 @@ size_t SupervisedLearner::countMisclassifications(const Matrix& features, const 
 			if(pred[j] != lab[j])
 			{
 				mis++;
+				break;
 			}
 		}
 	}

@@ -27,10 +27,10 @@ using std::vector;
 void do_mnist()
 {
 	cout << "Loading data...\n"; cout.flush();
-	Matrix train_feat;	train_feat.loadARFF("/home/mike/data/mnist/train_feat.arff");
-	Matrix train_lab;	train_lab.loadARFF("/home/mike/data/mnist/train_lab.arff");
-	Matrix test_feat;	test_feat.loadARFF("/home/mike/data/mnist/test_feat.arff");
-	Matrix test_lab;	test_lab.loadARFF("/home/mike/data/mnist/test_lab.arff");
+	Matrix train_feat;	train_feat.loadARFF("/home/joseph/data/mnist/train_feat.arff");
+	Matrix train_lab;	train_lab.loadARFF("/home/joseph/data/mnist/train_lab.arff");
+	Matrix test_feat;	test_feat.loadARFF("/home/joseph/data/mnist/test_feat.arff");
+	Matrix test_lab;	test_lab.loadARFF("/home/joseph/data/mnist/test_lab.arff");
 
 	Rand r(1234);
 	NeuralNet* nn = new NeuralNet(r);
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 	try
 	{
 		NeuralNet::unit_test1();
-		do_mnist();
+//		do_mnist();
 		ret = 0;
 	}
 	catch(const std::exception& e)
