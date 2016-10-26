@@ -58,7 +58,7 @@ public:
 	void setTopology(std::vector<size_t>& topology) { m_topology = topology; }
 
 	/// Sets all the weights to small random values
-	void init(const Matrix& features, const Matrix& labels);
+	void init(size_t in, size_t out, size_t rows);
 
 	/// Train the neural net
 	virtual void train(const Matrix& features, const Matrix& labels);
@@ -71,12 +71,15 @@ public:
 
 	void train_stochastic(const Matrix& features, const Matrix& labels, double learning_rate, double momentum);
 
+	void train_with_images(const Matrix& X);
+
 protected:
 	void feed_forward(const Vec& in);
 	void present_pattern(const Vec& features, const Vec& labels);
 	void compute_output_layer_blame_terms(const Vec& target);
 	void backpropagate();
 	void descend_gradient(double learning_rate);
+	void update_inputs(double learning_rate,Vec& inputs);
 };
 
 

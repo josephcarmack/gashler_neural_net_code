@@ -136,12 +136,13 @@ NeuralNet::~NeuralNet()
 	delete(m_pattern_indexes);
 }
 
-void NeuralNet::init(const Matrix& features, const Matrix& labels)
+void NeuralNet::init(size_t in, size_t out, size_t rows)
 {
 	for(size_t i = 0; i < m_layers.size(); i++)
 		delete(m_layers[i]);
 	m_layers.clear();
-	size_t in = features.cols();
+
+	// create and initialize input and hidden layers
 	for(size_t i = 0; i < m_topology.size(); i++)
 	{
 		Layer* pNewLayer = new Layer();
@@ -149,12 +150,16 @@ void NeuralNet::init(const Matrix& features, const Matrix& labels)
 		m_layers.push_back(pNewLayer);
 		in = m_topology[i];
 	}
+
+	// create and initialize output layer
 	Layer* pNewLayer = new Layer();
-	pNewLayer->init(in, labels.cols(), m_rand);
+	pNewLayer->init(in, out, m_rand);
 	m_layers.push_back(pNewLayer);
+
+	// create and initialize indexing pattern array for this topology
 	delete(m_pattern_indexes);
-	m_pattern_indexes = new size_t[features.rows()];
-	for(size_t i = 0; i < features.rows(); i++)
+	m_pattern_indexes = new size_t[rows];
+	for(size_t i = 0; i < rows; i++)
 		m_pattern_indexes[i] = i;
 }
 
@@ -206,7 +211,7 @@ void NeuralNet::descend_gradient(double learning_rate)
 // virtual
 void NeuralNet::train(const Matrix& features, const Matrix& labels)
 {
-	init(features, labels);
+	init(features.cols(), labels.cols(),features.rows());
 	double learning_rate = 0.03;
 	for(size_t i = 0; i < 100; i++)
 	{
@@ -232,6 +237,87 @@ void NeuralNet::train_stochastic(const Matrix& features, const Matrix& labels, d
 	}
 }
 
+void NeuralNet::update_inputs(double learning_rate,Vec& inputs)
+{
+	Vec negGrad(inputs.size());
+	negGrad.fill(0.0);
+	double blame, weight;
+	// calculate the negative gradient for each input
+	// then update the input by descending the gradient
+	for (size_t i = 0; i<inputs.size();i++)
+	{
+		// loop over each unit inputs feed into
+		for (size_t j = 0; j<m_topology.at(0);j++)
+		{
+			blame = m_layers[0]->m_blame[j];
+			weight = m_layers[0]->m_weights[i][j];
+			negGrad[i] += blame*weight;
+		}
+		// update input
+		inputs[i] += negGrad[i]*learning_rate;
+	}
+}
+
+void NeuralNet::train_with_images(const Matrix& X)
+{
+	size_t width = 64;
+	size_t height = 48;
+	size_t channels = X.cols()/(width*height); // should equal 3 for this problem (rgb) values
+	size_t n = X.rows();
+	size_t k = 2; // degrees of freedom (2 for the crane system)
+	Matrix  v(n,k);
+	v.fill(0.0);
+	Vec features(k+2);
+	Vec labels(channels); // stores rgb values for corresponding pixel
+	double lr = 0.1;
+	// loop variables
+	size_t t,p,q,s,e,iter;
+	double x,y;
+	Vec pred(channels);
+
+	std::cout << "training features with images...\n";
+	for (size_t j = 0; j<10;j++)
+	{
+		for (size_t i = 0; i<100000;i++)
+		{
+			// pick a random row
+			t = m_rand.next(n);
+			// pick random pixel in image
+			p = m_rand.next(width);
+			q = m_rand.next(height);
+			// create features from p,q, and v
+			x = (double) p / (double) width;
+			y = (double) q / (double) height;
+			// build feature vector
+			features[0] = x;
+			features[1] = y;
+			for (size_t m=0;m<k;m++)
+				features[2+m]=v[t][m];
+			// build label vector
+			s = channels * (width*q + p);
+			e = s + channels;
+			iter = 0;
+			for (size_t m=s;m<e;m++)
+			{
+				labels[iter] = X[t][m];
+				iter++;
+			}
+			// make prediction
+			predict(features,pred);
+			// compute blame on layers 
+			compute_output_layer_blame_terms(pred);
+			backpropagate();
+			// update weights and inputs (v)
+			descend_gradient(lr);
+			update_inputs(lr,v[t]);
+		}
+	}
+
+	// save v for plotting
+	std::cout << "saving results for V...\n";
+	v.saveARFF("vResults.arff");
+}
+
 void NeuralNet::unit_test1()
 {
 	Rand rand(0);
@@ -245,7 +331,7 @@ void NeuralNet::unit_test1()
 	features[0][1] = -0.2;
 	labels[0][0] = 0.1;
 	labels[0][1] = 0.0;
-	mlp.init(features, labels);
+	mlp.init(features.cols(), labels.cols(), features.rows());
 
 	// Set the weights
 	Matrix& w1 = mlp.m_layers[0]->m_weights;

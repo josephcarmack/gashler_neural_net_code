@@ -44,7 +44,7 @@ void do_mnist()
 	Matrix lab_filtered;
 	f2.filter_data(train_feat, train_lab, feat_filtered, lab_filtered);
 
-	nn->init(feat_filtered, lab_filtered);
+	nn->init(feat_filtered.cols(), lab_filtered.cols(),train_feat.rows());
 	for(size_t i = 0; i < 10; i++)
 	{
 		cout << "Testing...\n"; cout.flush();
@@ -56,6 +56,29 @@ void do_mnist()
 	}
 }
 
+void do_assignment9()
+{
+	cout << "Loading data...\n"; cout.flush();
+	Matrix observations;	
+	Matrix actions;	
+	Matrix setIn(1,4);
+	Matrix setOut(1,3);
+	observations.loadARFF("/home/joseph/data/crane/observations.arff");
+	actions.loadARFF("/home/joseph/data/crane/actions.arff");
+
+	Rand r(1234);
+	NeuralNet* nn = new NeuralNet(r);
+	Filter* f1 = new Filter(nn, new Normalizer(), true);
+
+	Matrix normed_obser;
+	f1->filter_data(observations,observations,normed_obser,normed_obser);
+
+	vector<size_t> layers;	layers.push_back(12);	layers.push_back(12);
+	nn->setTopology(layers);
+	nn->init(4,3,observations.rows());
+	nn->train_with_images(normed_obser);
+}
+
 int main(int argc, char *argv[])
 {
 	enableFloatingPointExceptions();
@@ -64,6 +87,7 @@ int main(int argc, char *argv[])
 	{
 		NeuralNet::unit_test1();
 //		do_mnist();
+		do_assignment9();
 		ret = 0;
 	}
 	catch(const std::exception& e)
