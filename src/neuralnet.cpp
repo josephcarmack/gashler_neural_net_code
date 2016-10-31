@@ -182,14 +182,31 @@ void NeuralNet::feed_forward(const Vec& in)
 void NeuralNet::compute_output_layer_blame_terms(const Vec& target)
 {
 	Layer& output_layer = *m_layers[m_layers.size() - 1];
+	if (output_layer.m_activation.size() != target.size())
+		throw Ex("output layer size does not match label size.");
+	double dif,der;
 	for(size_t i = 0; i < target.size(); i++)
-		output_layer.m_blame[i] = (target[i] - output_layer.m_activation[i]) * activationDerivative(output_layer.m_net[i], output_layer.m_activation[i]);
+	{
+		dif = target[i] - output_layer.m_activation[i];
+		der = activationDerivative(output_layer.m_net[i], output_layer.m_activation[i]);
+		output_layer.m_blame[i] = dif * der;
+	}
 }
 
 void NeuralNet::backpropagate()
 {
-	for(size_t i = m_layers.size() - 1; i > 0; i--)
+	for(int i = m_layers.size() - 1; i > 0; i--)
+	{
 		m_layers[i - 1]->backprop(*m_layers[i]);
+	}
+}
+
+void NeuralNet::decayDeltas(double momentum)
+{
+	for(size_t i = 0; i < m_layers.size(); i++)
+	{
+		m_layers[i]->decay_deltas(momentum);
+	}
 }
 
 void NeuralNet::present_pattern(const Vec& features, const Vec& labels)
@@ -239,19 +256,23 @@ void NeuralNet::train_stochastic(const Matrix& features, const Matrix& labels, d
 
 void NeuralNet::update_inputs(double learning_rate,Vec& inputs)
 {
+	// calculate the negative gradient for each input
+	// then update the input by descending the gradient
+
 	Vec negGrad(inputs.size());
 	negGrad.fill(0.0);
 	double blame, weight;
-	// calculate the negative gradient for each input
-	// then update the input by descending the gradient
+
+	// loop over the inputs
 	for (size_t i = 0; i<inputs.size();i++)
 	{
 		// loop over each unit inputs feed into
-		for (size_t j = 0; j<m_topology.at(0);j++)
+		for (size_t j = 0; j<m_layers[0]->m_weights.rows();j++)
 		{
 			blame = m_layers[0]->m_blame[j];
-			weight = m_layers[0]->m_weights[i][j];
+			weight = m_layers[0]->m_weights[j][i];
 			negGrad[i] += blame*weight;
+//			std::cout << "i=" << i <<",j=" << j << std::endl;
 		}
 		// update input
 		inputs[i] += negGrad[i]*learning_rate;
@@ -266,19 +287,25 @@ void NeuralNet::train_with_images(const Matrix& X)
 	size_t n = X.rows();
 	size_t k = 2; // degrees of freedom (2 for the crane system)
 	Matrix  v(n,k);
+	std::string attr1="x",attr2="y";
+	v.setAttributeName(attr1,0);
+	v.setAttributeName(attr2,1);
 	v.fill(0.0);
 	Vec features(k+2);
 	Vec labels(channels); // stores rgb values for corresponding pixel
-	double lr = 0.1;
+
 	// loop variables
 	size_t t,p,q,s,e,iter;
 	double x,y;
 	Vec pred(channels);
 
+	double lr = 0.1;
+	size_t blast = 10000000;
+	size_t numBlasts = 10;
 	std::cout << "training features with images...\n";
-	for (size_t j = 0; j<10;j++)
+	for (size_t j = 0; j<numBlasts;j++)
 	{
-		for (size_t i = 0; i<100000;i++)
+		for (size_t i = 0; i<blast;i++)
 		{
 			// pick a random row
 			t = m_rand.next(n);
@@ -289,10 +316,10 @@ void NeuralNet::train_with_images(const Matrix& X)
 			x = (double) p / (double) width;
 			y = (double) q / (double) height;
 			// build feature vector
-			features[0] = x;
-			features[1] = y;
-			for (size_t m=0;m<k;m++)
-				features[2+m]=v[t][m];
+			features[0] = v[t][0];
+			features[1] = v[t][1];
+			features[2] = x;
+			features[3] = y;
 			// build label vector
 			s = channels * (width*q + p);
 			e = s + channels;
@@ -302,15 +329,16 @@ void NeuralNet::train_with_images(const Matrix& X)
 				labels[iter] = X[t][m];
 				iter++;
 			}
-			// make prediction
-			predict(features,pred);
-			// compute blame on layers 
-			compute_output_layer_blame_terms(pred);
-			backpropagate();
+			// present pattern
+			present_pattern(features,labels);
 			// update weights and inputs (v)
-			descend_gradient(lr);
 			update_inputs(lr,v[t]);
+			descend_gradient(lr);
+			decayDeltas(0.0);
 		}
+		lr *= 0.75;
+		std::cout << j+1 << " blast(s) completed, decaying learning rate to " << lr << ".\n";
+		printWeights();
 	}
 
 	// save v for plotting
@@ -352,22 +380,162 @@ void NeuralNet::unit_test1()
 	// Train
 	mlp.train_stochastic(features, labels, 0.1, 0.0);
 
-	// Spot check the activations
-	if(std::abs(0.09966799462495 - mlp.m_layers[0]->m_activation[1]) > 1e-8)
-		throw Ex("act1 wrong");
-	if(std::abs(-0.16268123406035 - mlp.m_layers[1]->m_activation[1]) > 1e-8)
-		throw Ex("act2 wrong");
+	double error;
+	// check the activations
+
+	// activations for first layer
+	error = std::abs(0.10955847021443 - mlp.m_layers[0]->m_activation[0]);
+	if(error > 1e-10)
+	{
+		std::cout << "error=" << error << std::endl;
+		throw Ex("act00 wrong");
+	}
+
+	error = std::abs(0.09966799462495 - mlp.m_layers[0]->m_activation[1]);
+	if(error > 1e-10)
+	{
+		std::cout << "error=" << error << std::endl;
+		throw Ex("act01 wrong");
+	}
+
+	error = std::abs(0.04995837495788 - mlp.m_layers[0]->m_activation[2]);
+	if(error > 1e-10)
+	{
+		std::cout << "error=" << error << std::endl;
+		throw Ex("act02 wrong");
+	}
+
+	// activations for second layer
+	error = std::abs(0.12525717909304 - mlp.m_layers[1]->m_activation[0]);
+	if(error > 1e-10)
+	{
+		std::cout << "error=" << error << std::endl;
+		throw Ex("act10 wrong");
+	}
+
+	error = std::abs(-0.16268123406035 - mlp.m_layers[1]->m_activation[1]);
+	if(error > 1e-10)
+	{
+		std::cout << "error=" << error << std::endl;
+		throw Ex("act11 wrong");
+	}
 
 	// Spot check the blames
-	if(std::abs(0.15837584528136 - mlp.m_layers[1]->m_blame[1]) > 1e-8)
+	if(std::abs(0.15837584528136 - mlp.m_layers[1]->m_blame[1]) > 1e-10)
 		throw Ex("blame1 wrong");
-	if(std::abs(0.04457938080482 - mlp.m_layers[0]->m_blame[1]) > 1e-8)
+	if(std::abs(0.04457938080482 - mlp.m_layers[0]->m_blame[1]) > 1e-10)
 		throw Ex("blame2 wrong");
 
 	// Spot check the updated weights
-	if(std::abs(-0.0008915876160964 - mlp.m_layers[0]->m_weights[1][1]) > 1e-8)
+	if(std::abs(-0.0008915876160964 - mlp.m_layers[0]->m_weights[1][1]) > 1e-10)
 		throw Ex("weight1 wrong");
-	if(std::abs(0.30157850028962 - mlp.m_layers[1]->m_weights[1][1]) > 1e-8)
+	if(std::abs(0.30157850028962 - mlp.m_layers[1]->m_weights[1][1]) > 1e-10)
 		throw Ex("weight2 wrong");
+
+	std::cout << "passed unit test 1...\n";
 }
 
+void NeuralNet::unit_test2()
+{
+	Rand rand(0);
+	NeuralNet mlp(rand);
+	vector<size_t> topology;
+	topology.push_back(3);
+	mlp.setTopology(topology);
+	Matrix features(1, 2);
+	Matrix labels(1, 2);
+	features[0][0] = 0.3;
+	features[0][1] = -0.2;
+	labels[0][0] = 0.1;
+	labels[0][1] = 0.0;
+	mlp.init(features.cols(), labels.cols(), features.rows());
+
+	// Set the weights
+	Matrix& w1 = mlp.m_layers[0]->m_weights;
+	w1[0][0] = 0.1; w1[0][1] = 0.1;
+	w1[1][0] = 0.0; w1[1][1] = 0.0;
+	w1[2][0] = 0.1; w1[2][1] = -0.1;
+	Vec& b1 = mlp.m_layers[0]->m_bias;
+	b1[0] = 0.1;
+	b1[1] = 0.1;
+	b1[2] = 0.0;
+	Matrix& w2 = mlp.m_layers[1]->m_weights;
+	w2[0][0] = 0.1; w2[0][1] = 0.1; w2[0][2] = 0.1;
+	w2[1][0] = 0.1; w2[1][1] = 0.3; w2[1][2] = -0.1;
+	Vec& b2 = mlp.m_layers[1]->m_bias;
+	b2[0] = 0.1;
+	b2[1] = -0.2;
+
+	// feed forward labels then do backpropagation 
+	mlp.feed_forward(features[0]); 
+	mlp.compute_output_layer_blame_terms(labels[0]);
+	mlp.backpropagate();
+
+	// calc the input updates
+	mlp.update_inputs(1.0,features[0]);
+
+	// Spot check the updated inputs 
+	double error = std::abs(0.29949132921729 - features[0][0]);
+	if(error > 1e-10)
+	{
+		std::cout <<"Error="<< error << std::endl;
+		throw Ex("feature[0][0] update is wrong");
+	}
+	error = std::abs(-0.19685308226483 - features[0][1]);
+	if(error > 1e-10)
+	{
+		std::cout <<"Error="<< error << std::endl;
+		throw Ex("feature[0][1] update is wrong");
+	}
+	std::cout << "passed unit test 2...\n";
+}
+
+// debug methods
+void NeuralNet::printWeights()
+{
+	for(size_t i = 0; i < m_layers.size(); i++)
+	{
+		std::cout << "----------------\nlayer["<<i<<"]:\n\n";
+		std::cout << "weights:\n\n";
+		m_layers[i]->m_weights.print(std::cout);
+		std::cout << std::endl;
+		std::cout << std::endl;
+		std::cout << "bias:\n\n";
+		m_layers[i]->m_bias.print(std::cout);
+		std::cout << std::endl;
+		std::cout << std::endl;
+	}
+}
+
+void NeuralNet::printBlame()
+{
+	for(size_t i = 0; i < m_layers.size(); i++)
+	{
+		std::cout << "----------------\nlayer["<<i<<"]:\n\n";
+		std::cout << "blame = ";
+		m_layers[i]->m_blame.print(std::cout);
+		std::cout << std::endl;
+	}
+}
+
+void NeuralNet::printActivations()
+{
+	for(size_t i = 0; i < m_layers.size(); i++)
+	{
+		std::cout << "----------------\nlayer["<<i<<"]:\n\n";
+		std::cout << "activation = ";
+		m_layers[i]->m_activation.print(std::cout);
+		std::cout << std::endl;
+	}
+}
+
+void NeuralNet::printNets()
+{
+	for(size_t i = 0; i < m_layers.size(); i++)
+	{
+		std::cout << "----------------\nlayer["<<i<<"]:\n\n";
+		std::cout << "net = ";
+		m_layers[i]->m_net.print(std::cout);
+		std::cout << std::endl;
+	}
+}

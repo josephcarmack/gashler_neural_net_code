@@ -68,14 +68,14 @@ void do_assignment9()
 
 	Rand r(1234);
 	NeuralNet* nn = new NeuralNet(r);
-	Filter* f1 = new Filter(nn, new Normalizer(), true);
+	Filter* f1 = new Filter(nn, new Normalizer(), false);
 
 	Matrix normed_obser;
 	f1->filter_data(observations,observations,normed_obser,normed_obser);
 
 	vector<size_t> layers;	layers.push_back(12);	layers.push_back(12);
 	nn->setTopology(layers);
-	nn->init(4,3,observations.rows());
+	nn->init(4,3,observations.rows()); // # feat, # labels, # data patterns
 	nn->train_with_images(normed_obser);
 }
 
@@ -86,6 +86,7 @@ int main(int argc, char *argv[])
 	try
 	{
 		NeuralNet::unit_test1();
+		NeuralNet::unit_test2();
 //		do_mnist();
 		do_assignment9();
 		ret = 0;

@@ -68,10 +68,17 @@ public:
 
 	/// Run some unit tests
 	static void unit_test1();
+	static void unit_test2();
 
 	void train_stochastic(const Matrix& features, const Matrix& labels, double learning_rate, double momentum);
 
 	void train_with_images(const Matrix& X);
+
+	// debug methods
+	void printWeights();
+	void printBlame();
+	void printActivations();
+	void printNets();
 
 protected:
 	void feed_forward(const Vec& in);
@@ -80,6 +87,7 @@ protected:
 	void backpropagate();
 	void descend_gradient(double learning_rate);
 	void update_inputs(double learning_rate,Vec& inputs);
+	void decayDeltas(double momentum);
 };
 
 

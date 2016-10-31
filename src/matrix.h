@@ -104,6 +104,9 @@ public:
 	/// Returns the name of the specified attribute
 	const std::string& attrName(size_t col) const { return m_attr_name[col]; }
 
+	/// sets the name of the specified attribute
+	void setAttributeName(std::string& name,size_t attributeCol) {m_attr_name.at(attributeCol)=name;}
+
 	/// Returns the name of the specified value
 	const std::string& attrValue(size_t attr, size_t val) const;
 
