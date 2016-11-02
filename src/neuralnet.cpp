@@ -67,6 +67,17 @@ void Layer::init(size_t inSize, size_t outSize, Rand& rand)
 	m_biasDelta.fill(0.0);
 }
 
+void Layer::debug_init()
+{
+	for(size_t i = 0; i < m_weights.rows(); i++)
+	{
+		for(size_t j = 0; j < m_weights.cols(); j++)
+			m_weights[i][j] = 0.007 * i + 0.003 * j;
+	}
+	for(size_t i = 0; i < m_weights.rows(); i++)
+		m_bias[i] = 0.001 * i;
+}
+
 void Layer::feed_forward(const Vec& in)
 {
 	for(size_t i = 0; i < m_weights.rows(); i++)
@@ -147,6 +158,7 @@ void NeuralNet::init(size_t in, size_t out, size_t rows)
 	{
 		Layer* pNewLayer = new Layer();
 		pNewLayer->init(in, m_topology[i], m_rand);
+//		pNewLayer->debug_init();
 		m_layers.push_back(pNewLayer);
 		in = m_topology[i];
 	}
@@ -154,6 +166,7 @@ void NeuralNet::init(size_t in, size_t out, size_t rows)
 	// create and initialize output layer
 	Layer* pNewLayer = new Layer();
 	pNewLayer->init(in, out, m_rand);
+//	pNewLayer->debug_init();
 	m_layers.push_back(pNewLayer);
 
 	// create and initialize indexing pattern array for this topology
@@ -254,12 +267,12 @@ void NeuralNet::train_stochastic(const Matrix& features, const Matrix& labels, d
 	}
 }
 
-void NeuralNet::update_inputs(double learning_rate,Vec& inputs)
+void NeuralNet::computeInputGradient(Vec& inputs, Vec& negGrad)
 {
 	// calculate the negative gradient for each input
 	// then update the input by descending the gradient
 
-	Vec negGrad(inputs.size());
+	negGrad.resize(inputs.size());
 	negGrad.fill(0.0);
 	double blame, weight;
 
@@ -272,11 +285,15 @@ void NeuralNet::update_inputs(double learning_rate,Vec& inputs)
 			blame = m_layers[0]->m_blame[j];
 			weight = m_layers[0]->m_weights[j][i];
 			negGrad[i] += blame*weight;
-//			std::cout << "i=" << i <<",j=" << j << std::endl;
 		}
-		// update input
-		inputs[i] += negGrad[i]*learning_rate;
 	}
+}
+
+void NeuralNet::updateInputs(double learningRate,Vec& nGrad,Vec& intrinsics,size_t startPos)
+{
+	// update intrinics vector
+	for (size_t i=0;i<intrinsics.size();i++)
+		intrinsics[i]+= nGrad[i+startPos]*learningRate;
 }
 
 void NeuralNet::train_with_images(const Matrix& X)
@@ -293,15 +310,15 @@ void NeuralNet::train_with_images(const Matrix& X)
 	v.fill(0.0);
 	Vec features(k+2);
 	Vec labels(channels); // stores rgb values for corresponding pixel
-
+	Vec negGrad(features.size());
+	
 	// loop variables
 	size_t t,p,q,s,e,iter;
 	double x,y;
-	Vec pred(channels);
 
 	double lr = 0.1;
 	size_t blast = 10000000;
-	size_t numBlasts = 10;
+	size_t numBlasts = 20;
 	std::cout << "training features with images...\n";
 	for (size_t j = 0; j<numBlasts;j++)
 	{
@@ -316,29 +333,30 @@ void NeuralNet::train_with_images(const Matrix& X)
 			x = (double) p / (double) width;
 			y = (double) q / (double) height;
 			// build feature vector
-			features[0] = v[t][0];
-			features[1] = v[t][1];
-			features[2] = x;
-			features[3] = y;
+			features[0] = x;
+			features[1] = y;
+			features[2] = v[t][0];
+			features[3] = v[t][1];
 			// build label vector
 			s = channels * (width*q + p);
 			e = s + channels;
 			iter = 0;
 			for (size_t m=s;m<e;m++)
 			{
-				labels[iter] = X[t][m];
+				labels[iter] = (double) X[t][m]/ 255.0;
 				iter++;
 			}
+
 			// present pattern
+			decayDeltas(0.0);
 			present_pattern(features,labels);
 			// update weights and inputs (v)
-			update_inputs(lr,v[t]);
+			computeInputGradient(features,negGrad);
 			descend_gradient(lr);
-			decayDeltas(0.0);
+			updateInputs(lr,negGrad,v[t],2);
 		}
 		lr *= 0.75;
 		std::cout << j+1 << " blast(s) completed, decaying learning rate to " << lr << ".\n";
-		printWeights();
 	}
 
 	// save v for plotting
@@ -472,7 +490,10 @@ void NeuralNet::unit_test2()
 	mlp.backpropagate();
 
 	// calc the input updates
-	mlp.update_inputs(1.0,features[0]);
+	Vec inGrad(features.cols());
+	inGrad.fill(0.0);
+	mlp.computeInputGradient(features[0],inGrad);
+	mlp.updateInputs(1.0,inGrad,features[0],0);
 
 	// Spot check the updated inputs 
 	double error = std::abs(0.29949132921729 - features[0][0]);

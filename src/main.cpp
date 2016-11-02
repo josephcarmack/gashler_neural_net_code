@@ -32,7 +32,7 @@ void do_mnist()
 	Matrix test_feat;	test_feat.loadARFF("/home/joseph/data/mnist/test_feat.arff");
 	Matrix test_lab;	test_lab.loadARFF("/home/joseph/data/mnist/test_lab.arff");
 
-	Rand r(1234);
+	Rand r(4242);
 	NeuralNet* nn = new NeuralNet(r);
 	vector<size_t> layers;	layers.push_back(80);	layers.push_back(30);
 	nn->setTopology(layers);
@@ -68,15 +68,15 @@ void do_assignment9()
 
 	Rand r(1234);
 	NeuralNet* nn = new NeuralNet(r);
-	Filter* f1 = new Filter(nn, new Normalizer(), false);
+//	Filter* f1 = new Filter(nn, new Normalizer(), false);
 
-	Matrix normed_obser;
-	f1->filter_data(observations,observations,normed_obser,normed_obser);
+//	Matrix normed_obser;
+//	f1->filter_data(observations,observations,normed_obser,normed_obser);
 
 	vector<size_t> layers;	layers.push_back(12);	layers.push_back(12);
 	nn->setTopology(layers);
 	nn->init(4,3,observations.rows()); // # feat, # labels, # data patterns
-	nn->train_with_images(normed_obser);
+	nn->train_with_images(observations);
 }
 
 int main(int argc, char *argv[])

@@ -26,6 +26,7 @@ public:
 	Vec m_biasDelta;
 
 	void init(size_t in, size_t out, Rand& rand);
+	void debug_init();
 	void feed_forward(const Vec& in);
 	void backprop(const Layer& from);
 	void decay_deltas(double momentum);
@@ -86,7 +87,8 @@ protected:
 	void compute_output_layer_blame_terms(const Vec& target);
 	void backpropagate();
 	void descend_gradient(double learning_rate);
-	void update_inputs(double learning_rate,Vec& inputs);
+	void computeInputGradient(Vec& inputs, Vec& negGrad);
+	void updateInputs(double learning_rate,Vec& nGrad,Vec& intrinsics,size_t startPos);
 	void decayDeltas(double momentum);
 };
 
