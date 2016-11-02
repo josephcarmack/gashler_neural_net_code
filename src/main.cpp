@@ -58,25 +58,57 @@ void do_mnist()
 
 void do_assignment9()
 {
-	cout << "Loading data...\n"; cout.flush();
-	Matrix observations;	
-	Matrix actions;	
-	Matrix setIn(1,4);
-	Matrix setOut(1,3);
-	observations.loadARFF("/home/joseph/data/crane/observations.arff");
-	actions.loadARFF("/home/joseph/data/crane/actions.arff");
-
-	Rand r(1234);
-	NeuralNet* nn = new NeuralNet(r);
-//	Filter* f1 = new Filter(nn, new Normalizer(), false);
-
-//	Matrix normed_obser;
-//	f1->filter_data(observations,observations,normed_obser,normed_obser);
-
+//	// load data for training the observation function
+//	cout << "Loading data...\n"; cout.flush();
+//	Matrix observations;	
+//	observations.loadARFF("/home/joseph/data/crane/observations.arff");
+//
+//	// create and train observation function, generates V matrix
+	Rand r(4242);
+//	NeuralNet* obsFunc = new NeuralNet(r);
 	vector<size_t> layers;	layers.push_back(12);	layers.push_back(12);
-	nn->setTopology(layers);
-	nn->init(4,3,observations.rows()); // # feat, # labels, # data patterns
-	nn->train_with_images(observations);
+//	obsFunc->setTopology(layers);
+//	obsFunc->init(4,3,observations.rows()); // # feat, # labels, # data patterns
+//	obsFunc->train_with_images(observations);
+
+	// load data for training the transition function
+	Matrix actions;	
+	actions.loadARFF("/home/joseph/data/crane/actions.arff");
+	Matrix v; 
+	v.loadARFF("/home/joseph/data/crane/vmatrix.arff");
+
+	// build features matrix (state,control)
+	Matrix rawFeat(actions.rows()-1,3);
+	rawFeat.copyBlock(0,0,actions,0,0,actions.rows()-1,actions.cols());
+	rawFeat.copyBlock(0,1,v,0,0,v.rows()-1,v.cols());
+
+	// build labels matrix (next state)
+	Matrix rawLabels(actions.rows()-1,2);
+	rawLabels.copyBlock(0,0,v,1,0,v.rows()-1,v.cols());
+	// make labels be difference between next state and current state
+	for (size_t i=0;i<rawLabels.rows();i++)
+	{
+		rawLabels[i][0] -= v[i][0];
+		rawLabels[i][1] -= v[i][1];
+	}
+
+	// create and train the transition function
+	NeuralNet* transFunc = new NeuralNet(r);
+	layers.clear();
+	layers.push_back(6);
+	transFunc->setTopology(layers);
+	transFunc->init(6,2,rawFeat.rows());
+
+	// apply normalization and nomcat filters to data
+	Filter * normFeat = new Filter(transFunc,new Normalizer(),true);
+	Filter * normLab  = new Filter(normFeat,new Normalizer(),false);
+	Filter * nomcatFeat = new Filter(normLab,new NomCat(),true);
+	Matrix filtFeatures;
+	Matrix filtLabels;
+	nomcatFeat->filter_data(rawFeat,rawLabels,filtFeatures,filtLabels);
+	filtLabels.saveARFF("test.arff");
+
+	// train the transition function using stochastic gradient descent
 }
 
 int main(int argc, char *argv[])
