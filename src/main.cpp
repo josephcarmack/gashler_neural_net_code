@@ -59,25 +59,25 @@ void do_mnist()
 void do_assignment9()
 {
 //	// load data for training the observation function
-//	cout << "Loading data...\n"; cout.flush();
-//	Matrix observations;	
-//	observations.loadARFF("/home/joseph/data/crane/observations.arff");
-//
-//	// create and train observation function, generates V matrix
+	cout << "Loading data...\n"; cout.flush();
+	Matrix observations;	
+	observations.loadARFF("/home/joseph/data/crane/observations.arff");
+
+	// create and train observation function, generates V matrix
 	Rand r(4242);
-//	NeuralNet* obsFunc = new NeuralNet(r);
+	NeuralNet* obsFunc = new NeuralNet(r);
 	vector<size_t> layers;	layers.push_back(12);	layers.push_back(12);
-//	obsFunc->setTopology(layers);
-//	obsFunc->init(4,3,observations.rows()); // # feat, # labels, # data patterns
-//	obsFunc->train_with_images(observations);
+	obsFunc->setTopology(layers);
+	obsFunc->init(4,3,observations.rows()); // # feat, # labels, # data patterns
+	obsFunc->train_with_images(observations);
 
 	// load data for training the transition function
 	Matrix actions;	
 	actions.loadARFF("/home/joseph/data/crane/actions.arff");
 	Matrix v; 
-	v.loadARFF("/home/joseph/data/crane/vmatrix.arff");
+	v.loadARFF("/home/joseph/projects/gashler_neural_net_code/bin/vResults.arff");
 
-	// build features matrix (state,control)
+	// build features matrix (control,state)
 	Matrix rawFeat(actions.rows()-1,3);
 	rawFeat.copyBlock(0,0,actions,0,0,actions.rows()-1,actions.cols());
 	rawFeat.copyBlock(0,1,v,0,0,v.rows()-1,v.cols());
@@ -93,7 +93,8 @@ void do_assignment9()
 	}
 
 	// create and train the transition function
-	NeuralNet* transFunc = new NeuralNet(r);
+	Rand rr(4242);
+	NeuralNet* transFunc = new NeuralNet(rr);
 	layers.clear();
 	layers.push_back(6);
 	transFunc->setTopology(layers);
@@ -106,9 +107,58 @@ void do_assignment9()
 	Matrix filtFeatures;
 	Matrix filtLabels;
 	nomcatFeat->filter_data(rawFeat,rawLabels,filtFeatures,filtLabels);
-	filtLabels.saveARFF("test.arff");
 
 	// train the transition function using stochastic gradient descent
+	cout << "Training the transition function...\n";
+	for(size_t i = 0; i < 10; i++)
+	{
+		transFunc->train_stochastic(filtFeatures, filtLabels, 0.03, 0.0);
+	}
+
+	// test crane simulator
+	Matrix plan;
+	plan.copyMetaData(rawFeat);
+	plan.newRows(11);
+	plan[0][0] = 0;
+	plan[1][0] = 0;
+	plan[2][0] = 0;
+	plan[3][0] = 0;
+	plan[4][0] = 0;
+	plan[5][0] = 2;
+	plan[6][0] = 2;
+	plan[7][0] = 2;
+	plan[8][0] = 2;
+	plan[9][0] = 2;
+	plan[0][1] = v[0][0];
+	plan[0][2] = v[0][1];
+
+	// run crane simulation using plan
+	Vec dv;
+	for (size_t i = 0; i<plan.rows()-1; i++)
+	{
+		nomcatFeat->predict(plan[i],dv);
+		plan[i+1][1] = plan[i][1]+dv[0];
+		plan[i+1][2] = plan[i][2]+dv[1];
+	}
+
+	Matrix simulation;
+	simulation.copyMetaData(v);
+	simulation.newRows(11);
+	simulation.copyBlock(0,0,plan,0,1,plan.rows(),2);
+	simulation.saveARFF("simulated.arff");
+
+	// generate images of simulated states
+	obsFunc->makeImage(simulation[0],"frame0.png");
+	obsFunc->makeImage(simulation[1],"frame1.png");
+	obsFunc->makeImage(simulation[2],"frame2.png");
+	obsFunc->makeImage(simulation[3],"frame3.png");
+	obsFunc->makeImage(simulation[4],"frame4.png");
+	obsFunc->makeImage(simulation[5],"frame5.png");
+	obsFunc->makeImage(simulation[6],"frame6.png");
+	obsFunc->makeImage(simulation[7],"frame7.png");
+	obsFunc->makeImage(simulation[8],"frame8.png");
+	obsFunc->makeImage(simulation[9],"frame9.png");
+	obsFunc->makeImage(simulation[10],"frame10.png");
 }
 
 int main(int argc, char *argv[])

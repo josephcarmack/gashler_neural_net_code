@@ -298,9 +298,9 @@ void NeuralNet::updateInputs(double learningRate,Vec& nGrad,Vec& intrinsics,size
 
 void NeuralNet::train_with_images(const Matrix& X)
 {
-	size_t width = 64;
-	size_t height = 48;
-	size_t channels = X.cols()/(width*height); // should equal 3 for this problem (rgb) values
+	m_width = 64;
+	m_height = 48;
+	size_t channels = X.cols()/(m_width*m_height); // should equal 3 for this problem (rgb) values
 	size_t n = X.rows();
 	size_t k = 2; // degrees of freedom (2 for the crane system)
 	Matrix  v(n,k);
@@ -318,7 +318,7 @@ void NeuralNet::train_with_images(const Matrix& X)
 
 	double lr = 0.1;
 	size_t blast = 10000000;
-	size_t numBlasts = 20;
+	size_t numBlasts = 10;
 	std::cout << "training features with images...\n";
 	for (size_t j = 0; j<numBlasts;j++)
 	{
@@ -327,18 +327,18 @@ void NeuralNet::train_with_images(const Matrix& X)
 			// pick a random row
 			t = m_rand.next(n);
 			// pick random pixel in image
-			p = m_rand.next(width);
-			q = m_rand.next(height);
+			p = m_rand.next(m_width);
+			q = m_rand.next(m_height);
 			// create features from p,q, and v
-			x = (double) p / (double) width;
-			y = (double) q / (double) height;
+			x = (double) p / (double) m_width;
+			y = (double) q / (double) m_height;
 			// build feature vector
 			features[0] = x;
 			features[1] = y;
 			features[2] = v[t][0];
 			features[3] = v[t][1];
 			// build label vector
-			s = channels * (width*q + p);
+			s = channels * (m_width*q + p);
 			e = s + channels;
 			iter = 0;
 			for (size_t m=s;m<e;m++)
@@ -363,6 +363,38 @@ void NeuralNet::train_with_images(const Matrix& X)
 	std::cout << "saving results for V...\n";
 	v.saveARFF("vResults.arff");
 }
+
+unsigned int NeuralNet::rgbToUint(int r, int g, int b)
+{
+	return 0xff000000 | ((r & 0xff) << 16) |
+		((g & 0xff) << 8) | (b & 0xff);
+}
+
+void NeuralNet::makeImage(Vec& state, const char* filename)
+{
+	Vec in;
+	in.resize(4);
+	in[2] = state[0];
+	in[3] = state[1];
+	Vec out;
+	out.resize(3);
+	MyImage im;
+	im.resize(m_width, m_height);
+	for(size_t y = 0; y < m_height; y++)
+	{
+		in[1] = (double)y / m_height;
+		for(size_t x = 0; x < m_width; x++)
+		{
+			in[0] = (double)x / m_width;
+			predict(in, out);
+			unsigned int color = rgbToUint(out[0] * 255, out[1] * 255, out[2] * 255);
+			im.setPixel(x, y, color);
+		}
+	}
+	im.savePng(filename);
+}
+
+
 
 void NeuralNet::unit_test1()
 {

@@ -9,6 +9,7 @@ TARGET_PATH = ../bin
 TARGET_NAME_OPT = proj1
 TARGET_NAME_DBG = $(TARGET_NAME_OPT)dbg
 OBJ_PATH = ../obj/$(TARGET_NAME_OPT)
+INSTALL_LOCATION_BIN ?= /usr/local/bin
 UNAME = $(shell uname -s)
 
 # If colorgcc is installed, use it, otherwise use g++
@@ -24,9 +25,9 @@ ifeq ($(UNAME),Darwin)
 	DBG_LFLAGS = -framework AppKit
 	OPT_LFLAGS = -framework AppKit
 else
-	CFLAGS = -Wall -Werror -Wshadow -pedantic -std=c++11
-	DBG_LFLAGS = 
-	OPT_LFLAGS = 
+	CFLAGS = -Wall -Werror -Wshadow -std=c++11
+	DBG_LFLAGS = -lpng
+	OPT_LFLAGS = -lpng 
 endif
 
 DBG_CFLAGS = $(CFLAGS) -g -D_DEBUG
@@ -51,6 +52,7 @@ CPP_FILES =\
 	supervised.cpp\
 	unsupervised.cpp\
 	vec.cpp\
+    image.cpp\
 
 ################
 # Lists

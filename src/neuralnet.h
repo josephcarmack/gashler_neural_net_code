@@ -9,6 +9,7 @@
 #include "supervised.h"
 #include "vec.h"
 #include <vector>
+#include "image.h"
 
 class Rand;
 
@@ -46,6 +47,9 @@ private:
 	std::vector<Layer*> m_layers;
 	size_t* m_pattern_indexes;
 
+	// image member vars
+	size_t m_width; size_t m_height;
+
 public:
 	NeuralNet(Rand& r);
 	virtual ~NeuralNet();
@@ -74,6 +78,10 @@ public:
 	void train_stochastic(const Matrix& features, const Matrix& labels, double learning_rate, double momentum);
 
 	void train_with_images(const Matrix& X);
+
+	/// methods for printing images
+	unsigned int rgbToUint(int r, int g, int b);
+	void makeImage(Vec& state, const char* filename);
 
 	// debug methods
 	void printWeights();
