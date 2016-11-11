@@ -9,7 +9,9 @@
 #include "supervised.h"
 #include "vec.h"
 #include <vector>
+#include <functional>
 #include "image.h"
+#include "activationFunctions.h"
 
 class Rand;
 
@@ -25,6 +27,7 @@ public:
 	Vec m_blame;
 	Matrix m_weightDelta;
 	Vec m_biasDelta;
+	std::function<double(double)> act,act_der;
 
 	void init(size_t in, size_t out, Rand& rand);
 	void debug_init();
@@ -33,6 +36,8 @@ public:
 	void decay_deltas(double momentum);
 	void update_deltas(const Vec& in);
 	void update_weights(double learning_rate);
+	void set_activation_func(std::function<double(double)> a,
+			std::function<double(double)> da);
 };
 
 
@@ -41,10 +46,11 @@ public:
 /// A multi-layer perceptron
 class NeuralNet : public SupervisedLearner
 {
-private:
+public:
 	Rand& m_rand;
-	std::vector<size_t> m_topology;
 	std::vector<Layer*> m_layers;
+private:
+	std::vector<size_t> m_topology;
 	size_t* m_pattern_indexes;
 
 	// image member vars

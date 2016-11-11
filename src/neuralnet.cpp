@@ -12,40 +12,17 @@
 
 using std::vector;
 
-//#define ACTIVATION_LOGISTIC
-#define ACTIVATION_TANH
 
 
-double activation(double x)
+
+
+
+void Layer::set_activation_func(std::function<double(double)> a,
+			std::function<double(double)> da)
 {
-#if defined(ACTIVATION_LOGISTIC)
-	if(x >= 700.0)
-		return 1.0;
-	if(x < -700.0)
-		return 0.0;
-	return 1.0 / (exp(-x) + 1.0);
-#elif defined(ACTIVATION_TANH)
-	if(x >= 700.0)
-		return 1.0;
-	if(x < -700.0)
-		return -1.0;
-	return tanh(x);
-#endif
+	act = a;
+	act_der = da;
 }
-
-double activationDerivative(double net, double activation)
-{
-#if defined(ACTIVATION_LOGISTIC)
-	return activation * (1.0 - activation);
-#elif defined(ACTIVATION_TANH)
-	return 1.0 - (activation * activation);
-#endif
-}
-
-
-
-
-
 
 void Layer::init(size_t inSize, size_t outSize, Rand& rand)
 {
@@ -65,6 +42,9 @@ void Layer::init(size_t inSize, size_t outSize, Rand& rand)
 	}
 	m_weightDelta.fill(0.0);
 	m_biasDelta.fill(0.0);
+
+	// default activation function is tanh
+	set_activation_func(tanh,dtanH);
 }
 
 void Layer::debug_init()
@@ -83,7 +63,7 @@ void Layer::feed_forward(const Vec& in)
 	for(size_t i = 0; i < m_weights.rows(); i++)
 	{
 		m_net[i] = in.dotProduct(m_weights[i]) + m_bias[i];
-		m_activation[i] = activation(m_net[i]);
+		m_activation[i] = act(m_net[i]);
 	}
 }
 
@@ -93,7 +73,7 @@ void Layer::backprop(const Layer& from)
 	{
 		double e = 0.0;
 		for(size_t j = 0; j < from.m_weights.rows(); j++)
-			e += from.m_weights[j][i] * from.m_blame[j] * activationDerivative(m_net[i], m_activation[i]);
+			e += from.m_weights[j][i] * from.m_blame[j] * act_der(m_net[i]);
 		m_blame[i] = e;
 	}
 }

@@ -53,6 +53,7 @@ CPP_FILES =\
 	unsupervised.cpp\
 	vec.cpp\
     image.cpp\
+	activationFunctions.cpp\
 
 ################
 # Lists
