@@ -18,6 +18,7 @@
 #include "filter.h"
 #include "nomcat.h"
 #include "normalizer.h"
+#include "activationFunctions.h"
 
 using std::cout;
 using std::cerr;
@@ -31,6 +32,13 @@ void assignment11()
 	Matrix labels; labels.loadARFF("/home/joseph/data/time_series/unemployment_rate.arff");
 	Matrix feat; feat.loadARFF("/home/joseph/data/time_series/time.arff");
 
+	// grap first 256 rows for training
+	Matrix trainF(256,feat.cols());
+	Matrix trainL(256,labels.cols());
+	trainF.copyBlock(0,0,feat,0,0,256,feat.cols());
+	trainL.copyBlock(0,0,labels,0,0,256,labels.cols());
+
+	// create neural network
 	Rand r(4242);
 	NeuralNet* nn = new NeuralNet(r);
 	vector<size_t> layers;	layers.push_back(101);
@@ -48,6 +56,36 @@ void assignment11()
 	}
 	nn->m_layers[0]->m_weights[100][0] = 0.01;
 	nn->m_layers[0]->m_bias[100] = 0;
+
+	// set activation functions
+	for (size_t i=0;i<100;i++)
+		nn->m_layers[0]->set_activation_func(sine,cosine,i);
+	nn->m_layers[0]->set_activation_func(identity,didentity,100);
+	nn->m_layers[1]->set_activation_func(identity,didentity,0);
+
+	// train nn 
+	double lr = 0.03;
+	for (size_t ep=0;ep<800;ep++)
+	{
+		nn->train_stochastic(trainF,trainL,lr,0.0);
+		std::cout << "sse=" << nn->measureSSE(trainF,trainL) << std::endl;
+		lr *= 0.98;
+	}
+
+	// make predictions and save to file
+	Matrix predF(356,feat.cols());
+	Matrix predL(356,labels.cols());
+	predF.copyBlock(0,0,feat,0,0,356,feat.cols());
+	predL.copyBlock(0,0,labels,0,0,356,labels.cols());
+	Matrix predictions(356,1);
+	predF.saveARFF("/home/joseph/data/time_series/sub_time.arff");
+	predL.saveARFF("/home/joseph/data/time_series/sub_unemp.arff");
+	for (size_t i=0;i<356;i++)
+	{
+		nn->predict(predF[i],predL[i]);
+		predictions[i].copy(nn->m_layers[1]->m_activation);
+	}
+	predictions.saveARFF("/home/joseph/data/time_series/l1reg.arff");
 }
 
 int main(int argc, char *argv[])
@@ -56,9 +94,9 @@ int main(int argc, char *argv[])
 	int ret = 1;
 	try
 	{
-		NeuralNet::unit_test1();
-		NeuralNet::unit_test2();
-		assignment11();
+//		NeuralNet::unit_test1();
+//		NeuralNet::unit_test2();
+//		assignment11();
 		ret = 0;
 	}
 	catch(const std::exception& e)

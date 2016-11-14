@@ -32,3 +32,14 @@ double dlogistic(double x)
 {
 	return logistic(x)*(1.0-logistic(x));
 }
+
+// harmonic
+double sine(double x)
+{
+	return sin(x);
+}
+// derivative of harmonic
+double cosine(double x)
+{
+	return cos(x);
+}

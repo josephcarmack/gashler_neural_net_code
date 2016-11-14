@@ -7,5 +7,7 @@ double identity(double x);
 double didentity(double x);
 double logistic(double x);
 double dlogistic(double x);
+double sine(double x);
+double cosine(double x);
 
 #endif

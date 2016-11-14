@@ -27,7 +27,8 @@ public:
 	Vec m_blame;
 	Matrix m_weightDelta;
 	Vec m_biasDelta;
-	std::function<double(double)> act,act_der;
+	// vector of pointers to activation functions and their derivatives
+	std::vector<std::function<double(double)>> act,act_der;
 
 	void init(size_t in, size_t out, Rand& rand);
 	void debug_init();
@@ -37,7 +38,9 @@ public:
 	void update_deltas(const Vec& in);
 	void update_weights(double learning_rate);
 	void set_activation_func(std::function<double(double)> a,
-			std::function<double(double)> da);
+			std::function<double(double)> da,size_t unit);
+	void l2_regularization(double lambda, double lrnRt);
+	void l1_regularization(double lambda, double lrnRt);
 };
 
 
@@ -97,9 +100,10 @@ public:
 
 protected:
 	void feed_forward(const Vec& in);
-	void present_pattern(const Vec& features, const Vec& labels);
+	void present_pattern(const Vec& features, const Vec& labels, double lrnRt);
 	void compute_output_layer_blame_terms(const Vec& target);
 	void backpropagate();
+	void regularization(double lambda, double learningRate);
 	void descend_gradient(double learning_rate);
 	void computeInputGradient(Vec& inputs, Vec& negGrad);
 	void updateInputs(double learning_rate,Vec& nGrad,Vec& intrinsics,size_t startPos);

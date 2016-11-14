@@ -32,6 +32,9 @@ public:
 	/// Measures the misclassifications with the provided test data
 	size_t countMisclassifications(const Matrix& features, const Matrix& labels);
 
+	/// Measures the summed squared error (SSE) 
+	double measureSSE(const Matrix& features, const Matrix& labels);
+
 	/// This default implementation just copies the data, without changing it in any way.
 	virtual void filter_data(const Matrix& feat_in, const Matrix& lab_in, Matrix& feat_out, Matrix& lab_out);
 };

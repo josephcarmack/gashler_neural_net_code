@@ -39,6 +39,27 @@ size_t SupervisedLearner::countMisclassifications(const Matrix& features, const 
 	return mis;
 }
 
+double SupervisedLearner::measureSSE(const Matrix& features, const Matrix& labels)
+{
+	if(features.rows() != labels.rows())
+		throw Ex("Mismatching number of rows");
+
+	Vec pred(labels.cols());
+	double sse = 0.0;
+
+	for(size_t i = 0; i < features.rows(); i++)
+	{
+		predict(features[i], pred);
+		const Vec& lab = labels[i];
+		for(size_t j = 0; j < lab.size(); j++)
+		{
+			double d = labels[i][j] - pred[j];
+			sse += (d*d);
+		}
+	}
+	return sse;
+}
+
 // virtual
 void SupervisedLearner::trainIncremental(const Vec& feat, const Vec& lab)
 {

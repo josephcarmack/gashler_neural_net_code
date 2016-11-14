@@ -18,10 +18,10 @@ using std::vector;
 
 
 void Layer::set_activation_func(std::function<double(double)> a,
-			std::function<double(double)> da)
+			std::function<double(double)> da,size_t unit)
 {
-	act = a;
-	act_der = da;
+	act.at(unit) = a;
+	act_der.at(unit) = da;
 }
 
 void Layer::init(size_t inSize, size_t outSize, Rand& rand)
@@ -36,15 +36,18 @@ void Layer::init(size_t inSize, size_t outSize, Rand& rand)
 	double mag = std::max(0.03, 1.0 / inSize);
 	for(size_t j = 0; j < outSize; j++)
 	{
+		// initialize weights
 		for(size_t i = 0; i < inSize; i++)
 			m_weights[j][i] = mag * rand.normal();
 		m_net[j] = mag * rand.normal();
+		// set default activation functions
+		std::function<double(double)> pNewActFunc = tanH;
+		std::function<double(double)> pNewActFuncDer = dtanH;
+		act.push_back(pNewActFunc);
+		act_der.push_back(pNewActFuncDer);
 	}
 	m_weightDelta.fill(0.0);
 	m_biasDelta.fill(0.0);
-
-	// default activation function is tanh
-	set_activation_func(tanh,dtanH);
 }
 
 void Layer::debug_init()
@@ -63,7 +66,7 @@ void Layer::feed_forward(const Vec& in)
 	for(size_t i = 0; i < m_weights.rows(); i++)
 	{
 		m_net[i] = in.dotProduct(m_weights[i]) + m_bias[i];
-		m_activation[i] = act(m_net[i]);
+		m_activation[i] = act[i](m_net[i]);
 	}
 }
 
@@ -73,7 +76,7 @@ void Layer::backprop(const Layer& from)
 	{
 		double e = 0.0;
 		for(size_t j = 0; j < from.m_weights.rows(); j++)
-			e += from.m_weights[j][i] * from.m_blame[j] * act_der(m_net[i]);
+			e += from.m_weights[j][i] * from.m_blame[j] * act_der[i](m_net[i]);
 		m_blame[i] = e;
 	}
 }
@@ -107,7 +110,38 @@ void Layer::update_weights(double learning_rate)
 	}
 }
 
+void Layer::l2_regularization(double lambda, double lrnRt)
+{
+	double decay = 1.0-lambda*lrnRt;
+	for (size_t r=0;r<m_weights.rows();r++)
+	{
+		for (size_t c=0;c<m_weights.cols();c++)
+		{
+			m_weights[r][c] *= decay;
+		}
+		m_bias[r] *= decay;
+	}
+}
 
+
+void Layer::l1_regularization(double lambda, double lrnRt)
+{
+	double decay = lambda*lrnRt;
+	for (size_t r=0;r<m_weights.rows();r++)
+	{
+		for (size_t c=0;c<m_weights.cols();c++)
+		{
+			if (std::signbit(m_weights[r][c]))
+				m_weights[r][c] += decay;
+			else
+				m_weights[r][c] -= decay;
+		}
+		if (std::signbit(m_bias[r]))
+			m_bias[r] += decay;
+		else
+			m_bias[r] -= decay;
+	}
+}
 
 
 
@@ -181,7 +215,7 @@ void NeuralNet::compute_output_layer_blame_terms(const Vec& target)
 	for(size_t i = 0; i < target.size(); i++)
 	{
 		dif = target[i] - output_layer.m_activation[i];
-		der = activationDerivative(output_layer.m_net[i], output_layer.m_activation[i]);
+		der = output_layer.act_der[i](output_layer.m_net[i]);
 		output_layer.m_blame[i] = dif * der;
 	}
 }
@@ -202,11 +236,25 @@ void NeuralNet::decayDeltas(double momentum)
 	}
 }
 
-void NeuralNet::present_pattern(const Vec& features, const Vec& labels)
+void NeuralNet::regularization(double lambda,double learningRate)
+{
+	for(size_t i = 1; i < m_layers.size(); i++)
+	{
+		// uncomment for l2 regularization
+//		m_layers[i]->l2_regularization(lambda,learningRate);
+		// uncomment for l1 regularization
+		m_layers[i]->l1_regularization(lambda,learningRate);
+	}
+}
+
+void NeuralNet::present_pattern(const Vec& features, const Vec& labels, double lrnRt)
 {
 	feed_forward(features);
 	compute_output_layer_blame_terms(labels);
 	backpropagate();
+	// uncommment to apply regularization
+	regularization(0.001,lrnRt);// lambda, learning rate
+	// update deltas
 	m_layers[0]->update_deltas(features);
 	for(size_t i = 1; i < m_layers.size(); i++)
 		m_layers[i]->update_deltas(m_layers[i - 1]->m_activation);
@@ -242,7 +290,7 @@ void NeuralNet::train_stochastic(const Matrix& features, const Matrix& labels, d
 		for(size_t j = 0; j < m_layers.size(); j++)
 			m_layers[j]->decay_deltas(momentum);
 		size_t index = m_pattern_indexes[i];
-		present_pattern(features[index], labels[index]);
+		present_pattern(features[index], labels[index],learning_rate);
 		descend_gradient(learning_rate);
 	}
 }
@@ -329,7 +377,7 @@ void NeuralNet::train_with_images(const Matrix& X)
 
 			// present pattern
 			decayDeltas(0.0);
-			present_pattern(features,labels);
+			present_pattern(features,labels,lr);
 			// update weights and inputs (v)
 			computeInputGradient(features,negGrad);
 			descend_gradient(lr);
