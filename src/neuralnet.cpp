@@ -119,7 +119,7 @@ void Layer::l2_regularization(double lambda, double lrnRt)
 		{
 			m_weights[r][c] *= decay;
 		}
-		m_bias[r] *= decay;
+//		m_bias[r] *= decay;
 	}
 }
 
@@ -136,10 +136,10 @@ void Layer::l1_regularization(double lambda, double lrnRt)
 			else
 				m_weights[r][c] -= decay;
 		}
-		if (std::signbit(m_bias[r]))
-			m_bias[r] += decay;
-		else
-			m_bias[r] -= decay;
+//		if (std::signbit(m_bias[r]))
+//			m_bias[r] += decay;
+//		else
+//			m_bias[r] -= decay;
 	}
 }
 
@@ -271,10 +271,13 @@ void NeuralNet::train(const Matrix& features, const Matrix& labels)
 {
 	init(features.cols(), labels.cols(),features.rows());
 	double learning_rate = 0.03;
-	for(size_t i = 0; i < 100; i++)
+	double sse;
+	for(size_t i = 0; i < 10; i++)
 	{
 		train_stochastic(features, labels, 0.03, 0.0);
 		learning_rate *= 0.98;
+		sse = measureSSE(features,labels);
+		std::cout << "sse = " << sse << std::endl;
 	}
 }
 
