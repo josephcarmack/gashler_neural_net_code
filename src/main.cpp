@@ -19,6 +19,7 @@
 #include "nomcat.h"
 #include "normalizer.h"
 #include "activationFunctions.h"
+#include <fstream>
 
 using std::cout;
 using std::cerr;
@@ -75,12 +76,14 @@ void assignment14()
 	// the center of the picture for the shifted mnist data
 
 	// load data
-	Matrix train_feat; train_feat.loadARFF("/home/joseph/data/project14/shifted_mnist.arff");
-	Matrix train_lab;  train_lab.loadARFF("/home/joseph/data/project14/shifts.arff");
-	Matrix test_feat; test_feat.loadARFF("/home/joseph/data/project14/test_shifted_mnist.arff");
-	Matrix test_lab;  test_lab.loadARFF("/home/joseph/data/project14/test_shifts.arff");
-//	Matrix train_feat; train_feat.loadARFF("/home/joseph/data/project14/tf_subset.arff");
-//	Matrix train_lab;  train_lab.loadARFF("/home/joseph/data/project14/tl_subset.arff");
+//	Matrix train_feat; train_feat.loadARFF("/home/joseph/data/project14/shifted_mnist.arff");
+//	Matrix train_lab;  train_lab.loadARFF("/home/joseph/data/project14/shifts.arff");
+//	Matrix test_feat; test_feat.loadARFF("/home/joseph/data/project14/test_shifted_mnist.arff");
+//	Matrix test_lab;  test_lab.loadARFF("/home/joseph/data/project14/test_shifts.arff");
+	Matrix train_feat; train_feat.loadARFF("/home/joseph/data/project14/tf_subset.arff");
+	Matrix train_lab;  train_lab.loadARFF("/home/joseph/data/project14/tl_subset.arff");
+	Matrix test_feat; test_feat.loadARFF("/home/joseph/data/project14/tsf_subset.arff");
+	Matrix test_lab;  test_lab.loadARFF("/home/joseph/data/project14/tsl_subset.arff");
 
 	// grab subset of training and test data
 //	Matrix tf(1000,train_feat.cols());
@@ -89,6 +92,12 @@ void assignment14()
 //	tl.copyBlock(0,0,train_lab,0,0,1000,train_lab.cols());
 //	tf.saveARFF("/home/joseph/data/project14/tf_subset.arff");
 //	tl.saveARFF("/home/joseph/data/project14/tl_subset.arff");
+//	Matrix tsf(100,test_feat.cols());
+//	Matrix tsl(100,test_lab.cols());
+//	tsf.copyBlock(0,0,test_feat,0,0,100,test_feat.cols());
+//	tsl.copyBlock(0,0,test_lab,0,0,100,test_lab.cols());
+//	tsf.saveARFF("/home/joseph/data/project14/tsf_subset.arff");
+//	tsl.saveARFF("/home/joseph/data/project14/tsl_subset.arff");
 
 	// create MLP
 	Rand r(1337);
@@ -102,40 +111,43 @@ void assignment14()
 	Filter * f1 = new Filter(nn,new Normalizer(),true);
 	Filter * f2 = new Filter(f1,new Normalizer(),false);
 
-	// train the mlp
-	f2->train(train_feat,train_lab);
+//	// train the mlp
+//	f2->train(train_feat,train_lab);
+//
+//	// test against test data
+//	double sse = f2->measureSSE(test_feat,test_lab);
+//	cout << "sse = " << sse << std::endl;
 
-	// test against test data
-	size_t mis = f2->countMisclassifications(test_feat,test_lab);
-	double sse = f2->measureSSE(test_feat,test_lab);
-	cout << "mis = " << mis << std::endl;
-	cout << "sse = " << sse << std::endl;
+//	Vec pred;
+//	cout << "making predictions...\n";
+//	cout << test_feat.rows() << std::endl;
+//	for (size_t i=0;i<test_feat.rows();i++)
+//	{
+//		f2->predict(test_feat[i],pred);
+//		cout << "lab=";
+//		test_lab[i].print(std::cout);
+//		cout << "\tpred=";
+//		pred.print(std::cout);
+//		cout << std::endl;
+//	}
 
 	// filter normalize the data
-//	Matrix tf_filt;
-//	Matrix tl_filt;
-//	f2->filter_data(train_feat,train_lab,tf_filt,tl_filt);
-
-	// save normalized data
-//	tf_filt.saveARFF("/home/joseph/data/project14/filt_train_feat.arff");
-//	tl_filt.saveARFF("/home/joseph/data/project14/filt_train_lab.arff");
-
-	// load normalized data
-//	tf_filt.loadARFF("/home/joseph/data/project14/filt_train_feat.arff");
-//	tl_filt.loadARFF("/home/joseph/data/project14/filt_train_lab.arff");
+	Matrix tf_filt;
+	Matrix tl_filt;
+	f2->filter_data(train_feat,train_lab,tf_filt,tl_filt);
 
 	// train the MLP on the training data
-//	size_t mis;
-//	double lr = 0.03;
-//	for (size_t i = 0; i<10; i++)
-//	{
-//		cout << "testing...\n"; cout.flush();
-//		mis = f2->countMisclassifications(test_feat,test_lab);
-//		cout << "misc=" << mis << std::endl; cout.flush();
-//		cout << "training...\n"; cout.flush();
-//		nn->train_stochastic(tf_filt,tl_filt,lr,0.0);
-//		lr *= 0.98;
-//	}
+	double sse;
+	double lr = 0.03;
+	for (size_t i = 0; i<30; i++)
+	{
+		cout << "testing...\n"; cout.flush();
+		sse = f2->measureSSE(test_feat,test_lab);
+		cout << "sse=" << sse << std::endl; cout.flush();
+		cout << "training...\n"; cout.flush();
+		nn->train_stochastic(tf_filt,tl_filt,lr,0.0);
+		lr *= 0.98;
+	}
 }
 
 int main(int argc, char *argv[])

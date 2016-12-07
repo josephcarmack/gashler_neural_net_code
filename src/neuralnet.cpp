@@ -9,6 +9,7 @@
 #include "rand.h"
 #include <math.h>
 #include <cmath>
+#include <fstream>
 
 using std::vector;
 
@@ -272,13 +273,20 @@ void NeuralNet::train(const Matrix& features, const Matrix& labels)
 	init(features.cols(), labels.cols(),features.rows());
 	double learning_rate = 0.03;
 	double sse;
-	for(size_t i = 0; i < 10; i++)
+
+	// open error log file for writing error
+	std::ofstream err_log;
+	err_log.open("sse.log");
+	err_log << "SSE\n";
+	for(size_t i = 0; i < 30; i++)
 	{
 		train_stochastic(features, labels, 0.03, 0.0);
 		learning_rate *= 0.98;
 		sse = measureSSE(features,labels);
 		std::cout << "sse = " << sse << std::endl;
+		err_log << sse << std::endl;
 	}
+	err_log.close();
 }
 
 void NeuralNet::train_stochastic(const Matrix& features, const Matrix& labels, double learning_rate, double momentum)
