@@ -20,6 +20,7 @@
 #include "normalizer.h"
 #include "activationFunctions.h"
 #include <fstream>
+#include <cmath>
 
 using std::cout;
 using std::cerr;
@@ -35,7 +36,7 @@ void generateData()
 	// net as part of project 13.
 
 	Matrix mnist; 
-	mnist.loadARFF("/home/joseph/data/mnist/test_feat.arff");
+	mnist.loadARFF("/home/joseph/data/mnist/train_feat.arff");
 	
 	// create new matrix for storing shifted mnist data
 	size_t image_size = 28;
@@ -67,8 +68,8 @@ void generateData()
 			}
 		}
 	}
-	shifted.saveARFF("/home/joseph/data/project14/test_shifted_mnist.arff");
-	shifts.saveARFF("/home/joseph/data/project14/test_shifts.arff");
+	shifted.saveARFF("/home/joseph/data/project14/train_shifted_mnist.arff");
+	shifts.saveARFF("/home/joseph/data/project14/train_shifts.arff");
 }
 void assignment14()
 {
@@ -76,14 +77,14 @@ void assignment14()
 	// the center of the picture for the shifted mnist data
 
 	// load data
-//	Matrix train_feat; train_feat.loadARFF("/home/joseph/data/project14/shifted_mnist.arff");
-//	Matrix train_lab;  train_lab.loadARFF("/home/joseph/data/project14/shifts.arff");
-//	Matrix test_feat; test_feat.loadARFF("/home/joseph/data/project14/test_shifted_mnist.arff");
-//	Matrix test_lab;  test_lab.loadARFF("/home/joseph/data/project14/test_shifts.arff");
-	Matrix train_feat; train_feat.loadARFF("/home/joseph/data/project14/tf_subset.arff");
-	Matrix train_lab;  train_lab.loadARFF("/home/joseph/data/project14/tl_subset.arff");
-	Matrix test_feat; test_feat.loadARFF("/home/joseph/data/project14/tsf_subset.arff");
-	Matrix test_lab;  test_lab.loadARFF("/home/joseph/data/project14/tsl_subset.arff");
+	Matrix train_feat; train_feat.loadARFF("/home/joseph/data/project14/train_shifted_mnist.arff");
+	Matrix train_lab;  train_lab.loadARFF("/home/joseph/data/project14/train_shifts.arff");
+	Matrix test_feat; test_feat.loadARFF("/home/joseph/data/project14/test_shifted_mnist.arff");
+	Matrix test_lab;  test_lab.loadARFF("/home/joseph/data/project14/test_shifts.arff");
+//	Matrix train_feat; train_feat.loadARFF("/home/joseph/data/project14/tf_subset.arff");
+//	Matrix train_lab;  train_lab.loadARFF("/home/joseph/data/project14/tl_subset.arff");
+//	Matrix test_feat; test_feat.loadARFF("/home/joseph/data/project14/tsf_subset.arff");
+//	Matrix test_lab;  test_lab.loadARFF("/home/joseph/data/project14/tsl_subset.arff");
 
 	// grab subset of training and test data
 //	Matrix tf(1000,train_feat.cols());
@@ -103,7 +104,20 @@ void assignment14()
 	Rand r(1337);
 	NeuralNet* nn = new NeuralNet(r);
 	vector<size_t> layers;
-	layers.push_back(100);
+
+	// one hidden layer
+//	layers.push_back(268);
+
+	// two hidden layer
+//	layers.push_back(100);
+//	layers.push_back(50);
+
+	// three hidden layers
+	layers.push_back(200);
+	layers.push_back(60);
+	layers.push_back(8);
+
+	// create nn
 	nn->setTopology(layers);
 	nn->init(3136,2,train_feat.rows());
 
@@ -118,36 +132,43 @@ void assignment14()
 //	double sse = f2->measureSSE(test_feat,test_lab);
 //	cout << "sse = " << sse << std::endl;
 
-//	Vec pred;
-//	cout << "making predictions...\n";
-//	cout << test_feat.rows() << std::endl;
-//	for (size_t i=0;i<test_feat.rows();i++)
-//	{
-//		f2->predict(test_feat[i],pred);
-//		cout << "lab=";
-//		test_lab[i].print(std::cout);
-//		cout << "\tpred=";
-//		pred.print(std::cout);
-//		cout << std::endl;
-//	}
-
 	// filter normalize the data
 	Matrix tf_filt;
 	Matrix tl_filt;
 	f2->filter_data(train_feat,train_lab,tf_filt,tl_filt);
 
 	// train the MLP on the training data
+	double tsse;
 	double sse;
 	double lr = 0.03;
-	for (size_t i = 0; i<30; i++)
+	std::ofstream errData;
+	errData.open("errorData.log");
+	errData << "trSSE\ttsSSE\n";
+	for (size_t i = 0; i<100; i++)
 	{
-		cout << "testing...\n"; cout.flush();
-		sse = f2->measureSSE(test_feat,test_lab);
-		cout << "sse=" << sse << std::endl; cout.flush();
-		cout << "training...\n"; cout.flush();
 		nn->train_stochastic(tf_filt,tl_filt,lr,0.0);
+		sse = f2->measureSSE(test_feat,test_lab)/(double)test_feat.rows();
+		tsse = f2->measureSSE(train_feat,train_lab)/(double)train_feat.rows();
+		cout << "tsse=" << tsse << std::endl; cout.flush();
 		lr *= 0.98;
+
+		// log errors for this epoch
+		errData << tsse << "\t" << sse << std::endl;
 	}
+	errData.close();
+	
+//	// save the predictions
+	Matrix predictions(test_lab.rows(),test_lab.cols());
+	Vec pred;
+	cout << "making predictions...\n";
+	for (size_t i=0;i<test_feat.rows();i++)
+	{
+		f2->predict(test_feat[i],pred);
+		predictions[i].copy(pred);
+		predictions[i][0] = (int) std::round(predictions[i][0]);
+		predictions[i][1] = (int) std::round(predictions[i][1]);
+	}
+	predictions.saveARFF("/home/joseph/data/project14/predictions.arff");
 }
 
 int main(int argc, char *argv[])

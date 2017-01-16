@@ -239,12 +239,12 @@ void NeuralNet::decayDeltas(double momentum)
 
 void NeuralNet::regularization(double lambda,double learningRate)
 {
-	for(size_t i = 1; i < m_layers.size(); i++)
+	for(size_t i = 0; i < m_layers.size(); i++)
 	{
 		// uncomment for l2 regularization
-//		m_layers[i]->l2_regularization(lambda,learningRate);
+		m_layers[i]->l2_regularization(lambda,learningRate);
 		// uncomment for l1 regularization
-		m_layers[i]->l1_regularization(lambda,learningRate);
+//		m_layers[i]->l1_regularization(lambda,learningRate);
 	}
 }
 
@@ -254,7 +254,7 @@ void NeuralNet::present_pattern(const Vec& features, const Vec& labels, double l
 	compute_output_layer_blame_terms(labels);
 	backpropagate();
 	// uncommment to apply regularization
-	regularization(0.001,lrnRt);// lambda, learning rate
+	regularization(0.005,lrnRt);// lambda, learning rate
 	// update deltas
 	m_layers[0]->update_deltas(features);
 	for(size_t i = 1; i < m_layers.size(); i++)
